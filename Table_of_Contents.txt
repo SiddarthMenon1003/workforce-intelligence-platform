@@ -1,0 +1,86 @@
+
+===============================
+TABLE OF CONTENTS
+===============================
+
+1. INTRODUCTION
+
+
+2. DATA UNDERSTANDING AND PREPARATION
+    2.1 Importing Libraries
+    2.2 Dataset Loading
+    2.3 Initial Data Exploration
+    2.4 Data Cleaning and Preprocessing
+    2.5 Feature Engineering
+    2.6 Exploratory Data Analysis
+    2.7 Attrition Analysis
+
+
+3. FEATURE ENGINEERING AND DATA TRANSFORMATION
+    3.1 Encoding Categorical Variables
+    3.2 Feature Engineering
+    3.3 Feature Scaling
+    3.4 Train-Test Split
+
+
+4. LOGISTIC REGRESSION MODEL
+    4.1 Model Training
+    4.2 Model Evaluation
+    4.3 Feature Importance
+    4.4 Hyperparameter Tuning
+    4.5 Cross Validation
+
+
+5. RANDOM FOREST MODEL
+    5.1 Model Training
+    5.2 Model Evaluation
+    5.3 Feature Importance
+    5.4 Hyperparameter Tuning
+    5.5 Cross Validation
+
+
+6. GRADIENT BOOSTING MODEL
+    6.1 Model Training
+    6.2 Model Evaluation
+    6.3 Feature Importance
+    6.4 Hyperparameter Tuning
+    6.5 Cross Validation
+
+
+7. MODEL COMPARISON
+    7.1 ROC Curve Comparison
+    7.2 Cross Validation Comparison
+    7.3 Performance Comparison
+
+
+8. FINAL DRIVERS OF EMPLOYEE ATTRITION
+    8.1 Cross-Model Analysis
+
+
+9. INTERACTION ANALYSIS
+
+
+10. RISK SCORING AND EMPLOYEE SEGMENTATION
+    10.1 Employee Risk Scoring
+    10.2 High-Risk Employee Identification
+
+
+11. WORKFORCE IMPACT ANALYSIS
+    11.1 Department Stability Analysis
+    11.2 Workforce Risk Distribution
+    11.3 Experience Loss Analysis
+    11.4 Estimated Organizational Cost Impact
+
+
+12. BUSINESS LAYER
+    12.1 Executive Summary
+    12.2 Workforce & Attrition Insights
+    12.3 Strategic Workforce Recommendations
+    12.4 Organizational Impact Summary
+    12.5 Conclusion
+
+
+13. FUTURE IMPROVEMENTS
+
+
+14. REFERENCES
