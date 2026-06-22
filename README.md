@@ -1,6 +1,8 @@
 
 # Employee Attrition Prediction & Workforce Strategy Optimization
 
+https://workforce-intelligence-platform.onrender.com/
+
 ## Overview
 
 This project focuses on predicting employee attrition and generating business-driven workforce strategies using machine learning and analytics.
