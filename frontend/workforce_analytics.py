@@ -1,1110 +1,332 @@
-import streamlit as st
-import pandas as pd
-import plotly.express as px
-import plotly.graph_objects as go
-import matplotlib.pyplot as plt
+"""Workforce Analytics page — operational overtime, burnout, and lifecycle cuts."""
 
-from backend.risk_engine import (
-    classify_risk,
-    get_risk_severity
-)
+import plotly.graph_objects as go
+import streamlit as st
 
 from backend.insights_engine import (
     get_department_recommendation,
+    get_primary_risk_driver,
     get_workforce_department_content,
     get_workforce_vulnerability,
-    get_primary_risk_driver
 )
-
+from backend.risk_engine import classify_risk, get_risk_severity
 from backend.analytics import (
-    get_workforce_metrics,
-    get_workforce_department_stats,
+    get_overtime_distribution_metrics,
     get_satisfaction_metrics,
-    get_overtime_distribution_metrics
+    get_workforce_metrics,
 )
+from frontend.components import badge, card_eyebrow, divider, glass_card, kpi_row, page_header, ring_metric, section_title
+from frontend.theme import PLOTLY_AXIS, PLOTLY_LAYOUT, SERIES, STATUS_CRITICAL, STATUS_GOOD
 
-def render_workforce_analytics(
-    filtered_df,
-    selected_department
-):
-    """Render workforce analytics dashboard."""
+
+def _styled_layout(**overrides):
+    layout = dict(PLOTLY_LAYOUT)
+    layout.update(overrides)
+    return layout
+
+
+def render_workforce_analytics(filtered_df, selected_department):
+    """Render the Workforce Analytics page."""
+
+    metrics = get_workforce_metrics(filtered_df)
+    distribution_metrics = get_overtime_distribution_metrics(filtered_df)
+
+    avg_income = metrics["avg_income"]
+    dept_attrition = metrics["dept_attrition"]
+    stability_score = metrics["stability_score"]
+    overtime_percentage = metrics["overtime_percentage"]
+    overtime_attrition_rate = metrics["overtime_attrition_rate"]
+    no_overtime_attrition_rate = metrics["no_overtime_attrition_rate"]
+    workforce_stability_score = metrics["workforce_stability_score"]
+
+    department_content = get_workforce_department_content(selected_department)
+    stability_risk = classify_risk(100 - stability_score)
+
+    page_header(
+        eyebrow="Operational Intelligence Layer",
+        title="Workforce Performance Snapshot",
+        description=(
+            "Real-time operational metrics on overtime exposure, income, "
+            "attrition, and department-level workforce distribution."
+        ),
+        badge_text="\U0001F4CA Workforce Analytics Active",
+        badge_color="#60A5FA",
+    )
+
+    kpi_row(
+        [
+            {"icon": "⏱️", "label": "Overtime Workforce", "value": f"{distribution_metrics['overtime_pct']}%", "accent": STATUS_CRITICAL},
+            {"icon": "\U0001F4B0", "label": "Average Monthly Income", "value": f"₹{avg_income:,.0f}", "accent": "#60A5FA"},
+            {"icon": "\U0001F4C9", "label": "Attrition Rate", "value": f"{dept_attrition}%", "accent": "#A78BFA"},
+        ]
+    )
+
+    divider()
 
     # =========================================================
-    # WORKFORCE ANALYTICS CALCULATIONS
+    # OPERATIONAL SIGNAL + STABILITY INDEX + DEPARTMENT MIX
     # =========================================================
 
-    metrics = get_workforce_metrics(
-        filtered_df
-    )
-
-    distribution_metrics = (
-        get_overtime_distribution_metrics(
-            filtered_df
-        )
-    )
-
-    overtime_pct = (
-        distribution_metrics["overtime_pct"]
-    )
-
-    non_overtime_pct = (
-        distribution_metrics["non_overtime_pct"]
-    )
-
-    avg_income = (
-        metrics["avg_income"]
-    )
-
-    dept_attrition = (
-        metrics["dept_attrition"]
-    )
-
-    stability_score = (
-        metrics["stability_score"]
-    )
-
-    overtime_percentage = (
-        metrics["overtime_percentage"]
-    )
-
-    overtime_attrition_rate = (
-        metrics["overtime_attrition_rate"]
-    )
-
-    no_overtime_attrition_rate = (
-        metrics["no_overtime_attrition_rate"]
-    )
-
-    workforce_stability_score = (
-        metrics["workforce_stability_score"]
-    )
-
-    # =========================
-    # DEPARTMENT SIGNAL
-    # =========================
-
-    department_data = (
-        get_workforce_department_content(
-            selected_department
-        )
-    )
-
-    stability_risk = (
-        classify_risk(
-            100 - stability_score
-        )
-    )
-
-    stability_status = (
-        stability_risk["status"]
-    )
-
-    signal_title = (
-        department_data["signal_title"]
-    )
-
-    signal_text = (
-        department_data["signal_text"]
-    )
-
-    st.markdown(f"""
-        <div style="background:linear-gradient(135deg, rgba(15,23,42,0.95), rgba(30,41,59,0.88)); border:1px solid rgba(96,165,250,0.12); border-radius:30px; padding:26px 30px; margin-top:16px; margin-bottom:30px; box-shadow:0 12px 30px rgba(0,0,0,0.20);">
-
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-
-        <div>
-
-        <div style="font-size:13px; font-weight:700; letter-spacing:1.3px; text-transform:uppercase; color:#60A5FA; margin-bottom:8px;">
-        OPERATIONAL INTELLIGENCE LAYER
-        </div>
-
-        <div style="font-size:28px; font-weight:700; color:white;">
-        Workforce Performance Snapshot
-        </div>
-
-        </div>
-
-        <div style="padding:10px 18px; border-radius:999px; background:rgba(59,130,246,0.10); border:1px solid rgba(59,130,246,0.18); color:#93C5FD; font-size:14px; font-weight:600;">
-        📊 Workforce Analytics Active
-        </div>
-
-        </div>
-
-        <div style="display:grid; grid-template-columns:repeat(3,1fr); gap:18px;">
-
-        <div style="background:rgba(255,255,255,0.03); padding:18px; border-radius:22px;">
-        <div style="font-size:13px; color:#64748B;">
-        Overtime Workforce
-        </div>
-
-        <div style="font-size:30px; font-weight:750; color:white; margin-top:10px;">
-        {overtime_pct}%
-        </div>
-        </div>
-
-        <div style="background:rgba(255,255,255,0.03); padding:18px; border-radius:22px;">
-        <div style="font-size:13px; color:#64748B;">
-        Average Monthly Income
-        </div>
-
-        <div style="font-size:30px; font-weight:750; color:white; margin-top:10px;">
-        ₹{avg_income:,.0f}
-        </div>
-        </div>
-
-        <div style="background:rgba(255,255,255,0.03); padding:18px; border-radius:22px;">
-        <div style="font-size:13px; color:#64748B;">
-        Attrition Risk
-        </div>
-
-        <div style="font-size:30px; font-weight:750; color:white; margin-top:10px;">
-        {dept_attrition}%
-        </div>
-        </div>
-
-        </div>
-
-        <div style="
-        margin-top:26px;
-        padding-top:22px;
-        border-top:1px solid rgba(255,255,255,0.06);
-        display:grid;
-        grid-template-columns:1.2fr 1fr 1fr;
-        gap:28px;
-        align-items:stretch;
-        ">
-
-        <!-- LEFT SIGNAL -->
-        <div style="
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        ">
-
-        <div style="
-        font-size:12px;
-        text-transform:uppercase;
-        letter-spacing:1.5px;
-        color:#60A5FA;
-        font-weight:700;
-        margin-bottom:16px;
-        ">
-        Operational Workforce Signal
-        </div>
-
-        <div style="
-        font-size:17px;
-        line-height:1.8;
-        color:#CBD5E1;
-        margin-top:10px;
-        max-width:520px;
-        ">
-
-        <strong style="color:white;">
-        {signal_title}
-        </strong>
-
-        <div style="height:12px;"></div>
-
-        {signal_text}
-
-        </div>
-
-        <div style="
-        margin-top:24px;
-        display:inline-flex;
-        align-items:center;
-        gap:10px;
-        padding:12px 18px;
-        border-radius:999px;
-        background:rgba(16,185,129,0.08);
-        border:1px solid rgba(16,185,129,0.18);
-        width:fit-content;
-        ">
-
-        <div style="
-        width:10px;
-        height:10px;
-        border-radius:50%;
-        background:#6EE7B7;
-        box-shadow:0 0 12px #6EE7B7;
-        "></div>
-
-        <div style="
-        font-size:14px;
-        font-weight:600;
-        color:#6EE7B7;
-        ">
-        {stability_status}
-        </div>
-
-        </div>
-
-        </div>
-
-
-        <!-- CENTER DONUT -->
-        <div style="
-        padding:24px;
-        border-radius:26px;
-        background:rgba(59,130,246,0.06);
-        border:1px solid rgba(59,130,246,0.12);
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        justify-content:center;
-        ">
-
-        <div style="
-        font-size:13px;
-        color:#64748B;
-        margin-bottom:40px;
-        align-self:flex-start;
-        ">
-        Workforce Stability Index
-        </div>
-
-        <div style="
-        width:170px;
-        height:170px;
-        border-radius:50%;
-        background:
-        conic-gradient(
-        #60A5FA 0% {stability_score}%,
-        rgba(255,255,255,0.08) {stability_score}% 100%
-        );
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        ">
-
-        <div style="
-        width:125px;
-        height:125px;
-        border-radius:50%;
-        background:#0F172A;
-        display:flex;
-        flex-direction:column;
-        align-items:center;
-        justify-content:center;
-        ">
-
-        <div style="
-        font-size:38px;
-        font-weight:800;
-        color:white;
-        ">
-        {stability_score}
-        </div>
-
-        <div style="
-        font-size:12px;
-        letter-spacing:1px;
-        text-transform:uppercase;
-        color:#93C5FD;
-        margin-top:4px;
-        ">
-        Stability
-        </div>
-
-        </div>
-
-        </div>
-
-        <div style="
-        margin-top:20px;
-        font-size:15px;
-        font-weight:700;
-        color:#93C5FD;
-        text-align:center;
-        ">
-        {stability_risk["label"]}
-        </div>
-
-        <div style="
-        margin-top:8px;
-        font-size:13px;
-        color:#94A3B8;
-        line-height:1.6;
-        text-align:center;
-        ">
-        Balanced workforce structure with moderate overtime exposure.
-        </div>
-
-        </div>
-
-
-        <!-- RIGHT VISUAL -->
-        <div style="
-        padding:24px;
-        border-radius:26px;
-        background:rgba(168,85,247,0.06);
-        border:1px solid rgba(168,85,247,0.12);
-        display:flex;
-        flex-direction:column;
-        justify-content:center;
-        ">
-
-        <div style="
-        font-size:13px;
-        color:#64748B;
-        margin-bottom:20px;
-        ">
-        Department Distribution
-        </div>
-
-        <div style="
-        display:flex;
-        align-items:flex-end;
-        justify-content:center;
-        gap:18px;
-        height:150px;
-        ">
-
-        <div style="
-        width:52px;
-        height:70px;
-        border-radius:16px 16px 6px 6px;
-        background:#60A5FA;
-        "></div>
-
-        <div style="
-        width:52px;
-        height:115px;
-        border-radius:16px 16px 6px 6px;
-        background:#34D399;
-        "></div>
-
-        <div style="
-        width:52px;
-        height:90px;
-        border-radius:16px 16px 6px 6px;
-        background:#A78BFA;
-        "></div>
-
-        </div>
-
-        <div style="
-        display:flex;
-        justify-content:space-around;
-        font-size:13px;
-        color:#94A3B8;
-        margin-top:12px;
-        ">
-        <span>HR</span>
-        <span>R&D</span>
-        <span>Sales</span>
-        </div>
-
-        <div style="
-        margin-top:18px;
-        padding-top:14px;
-        border-top:1px solid rgba(255,255,255,0.06);
-        font-size:14px;
-        line-height:1.7;
-        color:#CBD5E1;
-        text-align:center;
-        ">
-
-        Balanced workforce allocation across core departments.
-
-        </div>
-
-        </div>
-
-        </div>
-
-        </div>
-
-        </div>
-
-        </div>
-
-        </div>
-        """, unsafe_allow_html=True)
+    signal_col, ring_col, dist_col = st.columns([1.1, 1, 1])
+
+    with signal_col:
+        with glass_card("height:100%;"):
+            card_eyebrow("Operational Workforce Signal", color="#60A5FA")
+            st.markdown(
+                f'<div class="card-title" style="font-size:17px;">{department_content["signal_title"]}</div>'
+                f'<div style="font-size:15px;line-height:1.7;color:#CBD5E1;">{department_content["signal_text"]}</div>'
+                '<div style="height:18px;"></div>',
+                unsafe_allow_html=True,
+            )
+            badge(stability_risk["status"], stability_risk["color"])
+
+    with ring_col:
+        with glass_card("height:100%; text-align:center;"):
+            card_eyebrow("Workforce Stability Index", color="#94A3B8")
+            ring_metric(
+                "#60A5FA",
+                f"{stability_score}",
+                stability_risk["label"],
+                size=150,
+                inner_caption="Stability",
+            )
+
+    with dist_col:
+        with glass_card("height:100%;"):
+            card_eyebrow("Department Distribution", color="#94A3B8")
+
+            dept_counts = filtered_df["Department"].value_counts()
+            fig_dist = go.Figure(
+                go.Bar(
+                    x=dept_counts.index,
+                    y=dept_counts.values,
+                    marker_color=SERIES[: len(dept_counts)],
+                    text=dept_counts.values,
+                    textposition="outside",
+                    hovertemplate="%{x}: %{y} employees<extra></extra>",
+                )
+            )
+            fig_dist.update_layout(**_styled_layout(height=250, showlegend=False, margin=dict(l=10, r=10, t=45, b=10)))
+            fig_dist.update_xaxes(**PLOTLY_AXIS, showgrid=False)
+            fig_dist.update_yaxes(
+                **PLOTLY_AXIS, showgrid=True, visible=False, range=[0, dept_counts.values.max() * 1.25]
+            )
+
+            st.plotly_chart(fig_dist, use_container_width=True, config={"displayModeBar": False})
 
     # =========================================================
     # OVERTIME & BURNOUT ANALYSIS
     # =========================================================
 
-    st.markdown("---")
-    st.subheader("Overtime & Burnout Analysis")
+    divider()
+    section_title("Overtime & Burnout Analysis")
 
-    # KPI Cards
-    card1, card2, card3, card4 = st.columns(4)
-
-    card1.metric(
-        "Employees Working Overtime",
-        f"{overtime_percentage}%"
+    kpi_row(
+        [
+            {"icon": "⏱️", "label": "Employees Working Overtime", "value": f"{overtime_percentage}%", "accent": STATUS_CRITICAL},
+            {"icon": "\U0001F525", "label": "Overtime Attrition Rate", "value": f"{overtime_attrition_rate}%", "accent": "#F59E0B"},
+            {"icon": "\U0001F6E1️", "label": "Non-Overtime Attrition", "value": f"{no_overtime_attrition_rate}%", "accent": STATUS_GOOD},
+            {"icon": "\U0001F4CA", "label": "Workforce Stability Score", "value": f"{workforce_stability_score}/100", "accent": "#60A5FA"},
+        ]
     )
 
-    card2.metric(
-        "Overtime Attrition Rate",
-        f"{overtime_attrition_rate}%"
-    )
-
-    card3.metric(
-        "Non-Overtime Attrition",
-        f"{no_overtime_attrition_rate}%"
-    )
-
-    card4.metric(
-        "Workforce Stability Score",
-        f"{workforce_stability_score}/100"
-    )
-
-    # Risk Meter
-    st.subheader("Workforce Risk Severity")
-
-    severity_type, severity_message = (
-        get_risk_severity(
-            overtime_attrition_rate
-        )
-    )
+    section_title("Workforce Risk Severity")
+    severity_type, severity_message = get_risk_severity(overtime_attrition_rate)
 
     if severity_type == "success":
-
-        st.success(
-            severity_message
-        )
-
+        st.success(severity_message)
     else:
+        st.error(severity_message)
 
-        st.error(
-            severity_message
-        )
-
-    # Smart Insights
-    st.subheader("Strategic Workforce Intelligence")
-
+    section_title("Strategic Workforce Intelligence")
     insight1, insight2 = st.columns(2)
 
     with insight1:
-
-        st.info(
-            get_workforce_vulnerability(
-                selected_department
-            )
-        )
+        st.info(get_workforce_vulnerability(selected_department))
 
     with insight2:
+        st.info(get_primary_risk_driver())
 
-        st.info(
-            get_primary_risk_driver(
-            )
-        )
-        
-    # Visual Analytics
+    # =========================================================
+    # VISUAL ANALYTICS
+    # =========================================================
+
     chart1, chart2 = st.columns(2)
 
     with chart1:
-
         risk_score = overtime_attrition_rate
+        risk_data = classify_risk(risk_score)
 
-        risk_data = classify_risk(
-            risk_score
-        )
-
-        risk_label = (
-            risk_data["label"]
-        )
-
-        risk_color = (
-            risk_data["color"]
-        )
-
-        st.markdown(f"""
-        <div style="
-        background:linear-gradient(
-            135deg,
-            rgba(17,24,39,0.96),
-            rgba(30,41,59,0.92)
-        );
-        border:1px solid rgba(255,255,255,0.06);
-        border-radius:28px;
-        padding:36px;
-        height:520px;
-        ">
-
-        <div style="
-        font-size:26px;
-        font-weight:800;
-        color:white;
-        margin-bottom:10px;
-        ">
-        Overtime Attrition Risk
-        </div>
-
-        <div style="
-        color:#94A3B8;
-        font-size:15px;
-        margin-bottom:36px;
-        ">
-        Likelihood of employee attrition among overtime workforce.
-        </div>
-
-        <div style="
-        display:grid;
-        grid-template-columns:1.4fr 1fr;
-        gap:24px;
-        align-items:center;
-        ">
-
-        <!-- LEFT SIDE -->
-
-        <div style="
-        display:flex;
-        align-items:center;
-        gap:28px;
-        ">
-
-        <!-- THERMOMETER -->
-
-        <div style="
-        position:relative;
-        width:62px;
-        height:220px;
-        border-radius:999px;
-        background:rgba(255,255,255,0.06);
-        overflow:hidden;
-        flex-shrink:0;
-        ">
-
-        <div style="
-        position:absolute;
-        bottom:0;
-        width:100%;
-        height:{risk_score}%;
-        background:linear-gradient(
-            180deg,
-            {risk_color},
-            rgba(255,255,255,0.95)
-        );
-        border-radius:999px;
-        box-shadow:0 0 25px {risk_color};
-        ">
-        </div>
-
-        </div>
-
-        <!-- MAIN METRIC -->
-
-        <div>
-
-        <div style="
-        font-size:74px;
-        font-weight:900;
-        color:{risk_color};
-        line-height:1;
-        margin-bottom:10px;
-        ">
-        {risk_score}%
-        </div>
-
-        <div style="
-        font-size:18px;
-        font-weight:700;
-        color:{risk_color};
-        line-height:1.2;
-        ">
-        {risk_label}
-        </div>
-
-        <div style="
-        display:inline-flex;
-        margin-top:18px;
-        align-items:center;
-        gap:10px;
-        padding:16px 22px;
-        border-radius:999px;
-        background:rgba(255,255,255,0.025);
-        border:1px solid rgba(255,255,255,0.045);
-        backdrop-filter:blur(18px);
-        ">
-
-        <div style="
-        width:10px;
-        height:10px;
-        border-radius:50%;
-        background:{risk_color};
-        box-shadow:0 0 8px rgba(198,161,91,0.28);
-        ">
-        </div>
-
-        <div style="
-        color:#CBD5E1;
-        font-size:14px;
-        font-weight:600;
-        ">
-        Overtime-linked workforce instability
-        </div>
-
-        </div>
-
-        </div>
-
-        </div>
-
-        <!-- RIGHT CARDS -->
-
-        <div style="
-        display:flex;
-        flex-direction:column;
-        gap:10px;
-        justify-content:center;
-        ">
-
-        <div style="
-        padding:14px;
-        border-radius:18px;
-        background:rgba(239,68,68,0.08);
-        border:1px solid rgba(239,68,68,0.14);
-        ">
-
-        <div style="
-        font-size:13px;
-        color:#94A3B8;
-        margin-bottom:6px;
-        ">
-        Overtime Employees
-        </div>
-
-        <div style="
-        font-size:26px;
-        font-weight:800;
-        color:#F87171;
-        ">
-        {overtime_percentage}%
-        </div>
-
-        </div>
-
-        <div style="
-        padding:14px;
-        border-radius:18px;
-        background:rgba(59,130,246,0.08);
-        border:1px solid rgba(59,130,246,0.14);
-        ">
-
-        <div style="
-        font-size:13px;
-        color:#94A3B8;
-        margin-bottom:6px;
-        ">
-        Stability Score
-        </div>
-
-        <div style="
-        font-size:26px;
-        font-weight:800;
-        color:#60A5FA;
-        ">
-        {workforce_stability_score}/100
-        </div>
-
-        </div>
-
-        <div style="
-        padding:14px;
-        border-radius:18px;
-        background:rgba(251,191,36,0.08);
-        border:1px solid rgba(251,191,36,0.14);
-        ">
-
-        <div style="
-        font-size:13px;
-        color:#94A3B8;
-        margin-bottom:6px;
-        ">
-        Risk Category
-        </div>
-
-        <div style="
-        font-size:20px;
-        font-weight:700;
-        color:{risk_color};
-        ">
-        {risk_label}
-        </div>
-
-        </div>
-
-        </div>
-
-        </div>
-
-        </div>
-        """, unsafe_allow_html=True)
-
-    with chart2:
-
-        distribution_metrics = (
-            get_overtime_distribution_metrics(
-                filtered_df
+        fig_gauge = go.Figure(
+            go.Indicator(
+                mode="gauge+number",
+                value=risk_score,
+                number={"suffix": "%", "font": {"size": 42, "color": "white"}},
+                title={"text": "Overtime Attrition Risk", "font": {"size": 16}},
+                gauge={
+                    "shape": "angular",
+                    "axis": {"range": [0, 100], "tickcolor": "rgba(0,0,0,0)"},
+                    "bar": {"color": risk_data["color"], "thickness": 0.3},
+                    "bgcolor": "rgba(0,0,0,0)",
+                    "borderwidth": 0,
+                    "steps": [
+                        {"range": [0, 30], "color": "rgba(34,197,94,0.15)"},
+                        {"range": [30, 50], "color": "rgba(245,158,11,0.12)"},
+                        {"range": [50, 100], "color": "rgba(239,68,68,0.12)"},
+                    ],
+                },
             )
         )
+        fig_gauge.update_layout(**_styled_layout(height=260))
+        st.plotly_chart(fig_gauge, use_container_width=True, config={"displayModeBar": False})
 
-        overtime_pct = (
-            distribution_metrics[
-                "overtime_pct"
+        kpi_row(
+            [
+                {"label": "Overtime Employees", "value": f"{overtime_percentage}%", "accent": STATUS_CRITICAL},
+                {"label": "Stability Score", "value": f"{workforce_stability_score}/100", "accent": "#60A5FA"},
+                {"label": "Risk Category", "value": risk_data["label"], "accent": risk_data["color"]},
             ]
         )
 
-        non_overtime_pct = (
-            distribution_metrics[
-                "non_overtime_pct"
+    with chart2:
+        overtime_pct = distribution_metrics["overtime_pct"]
+        non_overtime_pct = distribution_metrics["non_overtime_pct"]
+
+        fig_composition = go.Figure()
+        fig_composition.add_trace(
+            go.Bar(
+                y=["Workforce"], x=[overtime_pct], name="Overtime", orientation="h",
+                marker_color=STATUS_CRITICAL, text=[f"{overtime_pct}%"], textposition="inside",
+                hovertemplate="Overtime: %{x}%<extra></extra>",
+            )
+        )
+        fig_composition.add_trace(
+            go.Bar(
+                y=["Workforce"], x=[non_overtime_pct], name="Non-Overtime", orientation="h",
+                marker_color="#60A5FA", text=[f"{non_overtime_pct}%"], textposition="inside",
+                hovertemplate="Non-Overtime: %{x}%<extra></extra>",
+            )
+        )
+        fig_composition.update_layout(
+            **_styled_layout(height=240, barmode="stack", title="Workforce Composition")
+        )
+        fig_composition.update_xaxes(visible=False)
+        fig_composition.update_yaxes(visible=False)
+
+        st.plotly_chart(fig_composition, use_container_width=True, config={"displayModeBar": False})
+
+        kpi_row(
+            [
+                {"label": "Overtime Employees", "value": f"{overtime_pct}%", "accent": STATUS_CRITICAL},
+                {"label": "Non-Overtime Employees", "value": f"{non_overtime_pct}%", "accent": "#60A5FA"},
             ]
         )
 
-        st.markdown(f"""
-        <div style="
-        background:linear-gradient(
-            135deg,
-            rgba(17,24,39,0.96),
-            rgba(30,41,59,0.92)
-        );
-        border:1px solid rgba(255,255,255,0.06);
-        border-radius:28px;
-        padding:32px;
-        height:420px;
-        ">
+    # =========================================================
+    # STRATEGIC RECOMMENDATION & FINDINGS
+    # =========================================================
 
-        <div style="
-        font-size:26px;
-        font-weight:800;
-        color:white;
-        margin-bottom:10px;
-        ">
-        Workforce Composition
-        </div>
+    divider()
+    section_title("Strategic Recommendation")
+    st.success(get_department_recommendation(selected_department))
 
-        <div style="
-        color:#94A3B8;
-        font-size:15px;
-        margin-bottom:36px;
-        ">
-        Distribution of workforce based on overtime exposure.
-        </div>
-
-        <!-- SPLIT BAR -->
-
-        <div style="
-        display:flex;
-        width:100%;
-        height:58px;
-        border-radius:999px;
-        overflow:hidden;
-        background:rgba(255,255,255,0.06);
-        margin-bottom:34px;
-        ">
-
-        <div style="
-        width:{overtime_pct}%;
-        background:linear-gradient(90deg, #EF4444, #F87171);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        color:white;
-        font-size:18px;
-        font-weight:700;
-        ">
-        {overtime_pct}%
-        </div>
-
-        <div style="
-        width:{non_overtime_pct}%;
-        background:linear-gradient(90deg, #3B82F6, #60A5FA);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        color:white;
-        font-size:18px;
-        font-weight:700;
-        ">
-        {non_overtime_pct}%
-        </div>
-
-        </div>
-
-        <!-- METRIC CARDS -->
-
-        <div style="
-        display:flex;
-        gap:20px;
-        ">
-
-        <div style="
-        flex:1;
-        padding:24px;
-        border-radius:22px;
-        background:rgba(239,68,68,0.08);
-        border:1px solid rgba(239,68,68,0.14);
-        ">
-
-        <div style="
-        font-size:14px;
-        color:#94A3B8;
-        ">
-        Overtime Employees
-        </div>
-
-        <div style="
-        font-size:42px;
-        font-weight:900;
-        color:#F87171;
-        margin-top:10px;
-        ">
-        {overtime_pct}%
-        </div>
-
-        </div>
-
-        <div style="
-        flex:1;
-        padding:24px;
-        border-radius:22px;
-        background:rgba(59,130,246,0.08);
-        border:1px solid rgba(59,130,246,0.14);
-        ">
-
-        <div style="
-        font-size:14px;
-        color:#94A3B8;
-        ">
-        Non-Overtime Employees
-        </div>
-
-        <div style="
-        font-size:42px;
-        font-weight:900;
-        color:#60A5FA;
-        margin-top:10px;
-        ">
-        {non_overtime_pct}%
-        </div>
-
-        </div>
-
-        </div>
-
-        </div>
-        """, unsafe_allow_html=True)
-
-
-    #--------------------------------------------------------
-    # STRATEGIC RECOMMENDATION
-    #--------------------------------------------------------
-
-    st.subheader("Strategic Recommendation")
-
-    st.success(
-        get_department_recommendation(
-            selected_department
-        )
-    )
-
-    # Key Findings
-    st.subheader("Key Workforce Findings")
+    section_title("Key Workforce Findings")
 
     if selected_department == "All":
-
-        st.markdown(f"""
-    - Employees working overtime demonstrate substantially higher attrition vulnerability across the organization.
-    - Overtime employees currently show an attrition rate of **{overtime_attrition_rate}%**.
-    - Workforce instability appears strongly linked to overtime exposure and operational workload imbalance.
-    - Workforce stability score currently stands at **{workforce_stability_score}/100**.
-    """)
-
+        st.markdown(
+            f"""
+- Employees working overtime demonstrate substantially higher attrition vulnerability across the organization.
+- Overtime employees currently show an attrition rate of **{overtime_attrition_rate}%**.
+- Workforce instability appears strongly linked to overtime exposure and operational workload imbalance.
+- Workforce stability score currently stands at **{workforce_stability_score}/100**.
+"""
+        )
     else:
-
-        st.markdown(f"""
-    - The **{selected_department}** department currently demonstrates an attrition rate of **{dept_attrition}%**.
-    - Workforce pressure and operational workload appear strongly associated with retention challenges.
-    - Overtime exposure remains a major workforce risk factor within the selected department.
-    - Workforce stability score currently stands at **{workforce_stability_score}/100**.
-    """)
+        st.markdown(
+            f"""
+- The **{selected_department}** department currently demonstrates an attrition rate of **{dept_attrition}%**.
+- Workforce pressure and operational workload appear strongly associated with retention challenges.
+- Overtime exposure remains a major workforce risk factor within the selected department.
+- Workforce stability score currently stands at **{workforce_stability_score}/100**.
+"""
+        )
 
     # =========================================================
     # SATISFACTION & ENGAGEMENT ANALYSIS
     # =========================================================
 
-    satisfaction_data = (
-    get_satisfaction_metrics(
-        filtered_df
-    )
-    )
+    satisfaction_data = get_satisfaction_metrics(filtered_df)
+    job_sat = satisfaction_data["job_satisfaction"]
+    worklife = satisfaction_data["worklife_balance"]
+    tenure = satisfaction_data["tenure_attrition"]
+    attrition_yes = satisfaction_data["attrition_yes_income"]
+    attrition_no = satisfaction_data["attrition_no_income"]
 
-    job_sat = (
-        satisfaction_data[
-            "job_satisfaction"
-        ]
-    )
-
-    worklife = (
-        satisfaction_data[
-            "worklife_balance"
-        ]
-    )
-
-    tenure = (
-        satisfaction_data[
-            "tenure_attrition"
-        ]
-    )
-
-    attrition_yes = (
-        satisfaction_data[
-            "attrition_yes_income"
-        ]
-    )
-
-    attrition_no = (
-        satisfaction_data[
-            "attrition_no_income"
-        ]
-    )
-
-    st.markdown("---")
-    st.subheader("Satisfaction & Engagement Analysis")
+    divider()
+    section_title("Satisfaction & Engagement Analysis")
 
     sat1, sat2 = st.columns(2)
 
-    # Job Satisfaction
     with sat1:
-
-        fig5, ax5 = plt.subplots(figsize=(7,5))
-
-        ax5.plot(
-            job_sat['JobSatisfaction'],
-            job_sat['Attrition'],
-            marker='o',
-            linewidth=4,
-            markersize=10,
-            color='#9B59B6'
+        fig = go.Figure(
+            go.Scatter(
+                x=job_sat["JobSatisfaction"], y=job_sat["Attrition"],
+                mode="lines+markers", line=dict(color=SERIES[1], width=2),
+                marker=dict(size=9), fill="tozeroy",
+                fillcolor="rgba(167,139,250,0.12)",
+                hovertemplate="Satisfaction %{x}: %{y:.1%} attrition<extra></extra>",
+            )
         )
+        fig.update_layout(**_styled_layout(height=380, title="Attrition by Job Satisfaction", showlegend=False))
+        fig.update_xaxes(title="Job Satisfaction Level", **PLOTLY_AXIS)
+        fig.update_yaxes(title="Attrition Rate", tickformat=".0%", **PLOTLY_AXIS)
+        st.plotly_chart(fig, use_container_width=True)
 
-        ax5.fill_between(
-            job_sat['JobSatisfaction'],
-            job_sat['Attrition'],
-            alpha=0.2,
-            color='#9B59B6'
-        )
-
-        ax5.set_title(
-            "Attrition by Job Satisfaction",
-            fontsize=18,
-            fontweight='bold'
-        )
-
-        ax5.set_xlabel("Job Satisfaction Level")
-        ax5.set_ylabel("Attrition Rate")
-
-        ax5.grid(alpha=0.3, linestyle='--')
-
-        st.pyplot(fig5)
-
-    # Work-Life Balance
     with sat2:
-
-        fig6, ax6 = plt.subplots(figsize=(7,5))
-
-        ax6.bar(
-            worklife['WorkLifeBalance'],
-            worklife['Attrition'],
-            color='#2ECC71',
-            width=0.6
+        fig = go.Figure(
+            go.Bar(
+                x=worklife["WorkLifeBalance"], y=worklife["Attrition"],
+                marker_color=SERIES[2],
+                hovertemplate="Balance %{x}: %{y:.1%} attrition<extra></extra>",
+            )
         )
-
-        ax6.set_title(
-            "Work-Life Balance Impact",
-            fontsize=18,
-            fontweight='bold'
-        )
-
-        ax6.set_xlabel("Work-Life Balance Rating")
-        ax6.set_ylabel("Attrition Rate")
-
-        ax6.grid(axis='y', linestyle='--', alpha=0.3)
-
-        st.pyplot(fig6)
+        fig.update_layout(**_styled_layout(height=380, title="Work-Life Balance Impact", showlegend=False))
+        fig.update_xaxes(title="Work-Life Balance Rating", **PLOTLY_AXIS)
+        fig.update_yaxes(title="Attrition Rate", tickformat=".0%", **PLOTLY_AXIS)
+        st.plotly_chart(fig, use_container_width=True)
 
     # =========================================================
     # WORKFORCE LIFECYCLE ANALYSIS
     # =========================================================
 
-    st.markdown("---")
-    st.subheader("Workforce Lifecycle Analysis")
+    divider()
+    section_title("Workforce Lifecycle Analysis")
 
     lifecycle1, lifecycle2 = st.columns(2)
 
-    # Years at Company
     with lifecycle1:
-
-        fig7, ax7 = plt.subplots(figsize=(7,5))
-
-        ax7.plot(
-            tenure['YearsAtCompany'],
-            tenure['Attrition'],
-            linewidth=3,
-            color='#F39C12'
+        fig = go.Figure(
+            go.Scatter(
+                x=tenure["YearsAtCompany"], y=tenure["Attrition"],
+                mode="lines", line=dict(color=SERIES[3], width=2),
+                fill="tozeroy", fillcolor="rgba(251,191,36,0.12)",
+                hovertemplate="Year %{x}: %{y:.1%} attrition<extra></extra>",
+            )
         )
+        fig.update_layout(**_styled_layout(height=380, title="Attrition by Employee Tenure", showlegend=False))
+        fig.update_xaxes(title="Years at Company", **PLOTLY_AXIS)
+        fig.update_yaxes(title="Attrition Rate", tickformat=".0%", **PLOTLY_AXIS)
+        st.plotly_chart(fig, use_container_width=True)
 
-        ax7.fill_between(
-            tenure['YearsAtCompany'],
-            tenure['Attrition'],
-            alpha=0.2,
-            color='#F39C12'
-        )
-
-        ax7.set_title(
-            "Attrition by Employee Tenure",
-            fontsize=18,
-            fontweight='bold'
-        )
-
-        ax7.set_xlabel("Years at Company")
-        ax7.set_ylabel("Attrition Rate")
-
-        ax7.grid(alpha=0.3, linestyle='--')
-
-        st.pyplot(fig7)
-
-    # Monthly Income
     with lifecycle2:
-
-        fig8, ax8 = plt.subplots(figsize=(7,5))
-
-        ax8.hist(
-            [attrition_yes, attrition_no],
-            bins=15,
-            label=['Attrition', 'Retention'],
-            stacked=True
+        fig = go.Figure()
+        fig.add_trace(go.Histogram(x=attrition_yes, name="Attrition", marker_color=STATUS_CRITICAL, opacity=0.85))
+        fig.add_trace(go.Histogram(x=attrition_no, name="Retention", marker_color="#60A5FA", opacity=0.85))
+        fig.update_layout(
+            **_styled_layout(height=380, title="Income Distribution & Attrition", barmode="stack")
         )
+        fig.update_xaxes(title="Monthly Income", **PLOTLY_AXIS)
+        fig.update_yaxes(title="Employees", **PLOTLY_AXIS)
+        st.plotly_chart(fig, use_container_width=True)
 
-        ax8.set_title(
-            "Income Distribution & Attrition",
-            fontsize=18,
-            fontweight='bold'
-        )
-
-        ax8.set_xlabel("Monthly Income")
-        ax8.set_ylabel("Employees")
-
-        ax8.legend()
-
-        st.pyplot(fig8)
-
-    st.markdown("""
-            <div style="
-            height:1px;
-            background: linear-gradient(
-            90deg,
-            rgba(59,130,246,0),
-            rgba(59,130,246,0.7),
-            rgba(59,130,246,0)
-            );
-            margin-top:30px;
-            margin-bottom:30px;
-            ">
-            </div>
-            """, unsafe_allow_html=True)
+    divider()
