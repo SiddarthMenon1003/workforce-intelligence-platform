@@ -6,4 +6,4 @@ scikit-learn
 scipy
 plotly
 jupyter
-streamlit
+streamlit==1.57.0
